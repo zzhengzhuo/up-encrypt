@@ -1,0 +1,18 @@
+[package]
+name = "up-encrypt"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "up_encrypt"
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+openssl = "0.10"
+libc = "0.2"
+email-rs = { git = "https://github.com/sking789/email-rs.git", branch = "multi-dkim-header" }
+
+[build-dependencies]
+cbindgen = "0.20"
