@@ -1,10 +1,10 @@
-use std::{ptr::null_mut, slice::from_raw_parts, str::from_utf8};
+use std::{ffi::CString, ptr::null_mut, slice::from_raw_parts, str::from_utf8};
 
 use email_rs::Email;
 
 use crate::{
     rsa_with_sha256::{pub_pkey_from_component, pub_pkey_verify},
-    EMAIL_PARSE_ERROR, NOT_VERIFY, NULL_ERROR, SUCCESS, UTF8_ERROR,
+    EMAIL_PARSE_ERROR, NOT_VERIFY, NULL_ERROR, STRING_CONVERT_ERROR, SUCCESS, UTF8_ERROR,
 };
 
 #[no_mangle]
@@ -76,7 +76,7 @@ pub extern "C" fn get_header_value(
     email: &Email,
     header: *const u8,
     header_len: usize,
-    res: &mut *const u8,
+    res: &mut *mut u8,
     res_len: &mut usize,
 ) -> i32 {
     let header = unsafe { from_raw_parts(header, header_len) };
@@ -84,11 +84,14 @@ pub extern "C" fn get_header_value(
         Err(_e) => return UTF8_ERROR,
         Ok(v) => v,
     };
-    println!("header:{}", header);
     match email.get_header_value(header) {
         Ok(v) => {
-            *res_len = v.len();
-            *res = v.as_ptr();
+            *res_len = v.len() + 1;
+            let v = match CString::new(v) {
+                Ok(v) => v,
+                Err(_) => return STRING_CONVERT_ERROR,
+            };
+            *res = v.into_raw() as *mut u8;
             SUCCESS
         }
         Err(e) => e,
@@ -96,11 +99,15 @@ pub extern "C" fn get_header_value(
 }
 
 #[no_mangle]
-pub extern "C" fn get_body(email: &Email, res: &mut *const u8, res_len: &mut usize) -> i32 {
+pub extern "C" fn get_body(email: &Email, res: &mut *mut u8, res_len: &mut usize) -> i32 {
     match email.get_plain_body() {
         Ok(body) => {
-            *res_len = body.len();
-            *res = body.as_ptr();
+            *res_len = body.len() + 1;
+            let body = match CString::new(body) {
+                Ok(b) => b,
+                Err(_) => return STRING_CONVERT_ERROR,
+            };
+            *res = body.into_raw() as *mut u8;
             SUCCESS
         }
         Err(e) => e,

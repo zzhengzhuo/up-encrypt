@@ -49,18 +49,33 @@ int main()
     //test email
     char fpath[] = "./special_ch.eml";
     char *email_s = readcontent(&fpath[0]);
-    printf("email:%s\n",email_s);
+    printf("email:%s\n", email_s);
     Email *email;
     ret = get_email(email_s, strlen(email_s), &email);
-    printf("%i\n",ret);
     assert(ret == 0);
     print_email(email);
     char subject[] = "subject";
-    const uint8_t *subject_header;
+    uint8_t *subject_header;
 
     unsigned long subject_header_len;
     ret = get_header_value(email, &subject[0], 7, &subject_header, &subject_header_len);
-    printf("ret:%i\n", ret);
+    uint8_t header[] = {239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 212, 188, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 214, 183, 239, 191, 189, 42, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 38, 239, 191, 189, 239, 191, 189, 239, 191, 189, 239, 191, 189, 37, 239, 191, 189, 48, 239, 191, 189, 54, 239, 191, 189, 239, 191, 189, 64, 35, 48, 120, 50, 55, 99, 101, 54, 101, 102, 56, 51, 97, 51, 54, 101, 99, 51, 48, 102, 48, 102, 50, 48, 98, 54, 97, 52, 53, 99, 102, 48, 99, 52, 101, 56, 55, 99, 55, 50, 55, 49, 99, 56, 102, 48, 99, 99, 100, 101, 53, 57, 99, 57, 50, 56, 55, 55, 48, 50, 50, 56, 102, 100, 48, 99, 54, 0};
     assert(ret == 0);
+    assert(subject_header_len == 162);
+    assert(strncmp(subject_header, header, 161) == 0);
+
+    uint8_t *body;
+    unsigned long body_len;
+    ret = get_body(email, &body, &body_len);
+    assert(ret == 0);
+    assert(body_len == 1);
+    uint8_t b[] = "";
+    assert(strncmp(body, b, 1) == 0);
+    uint8_t pubkey_e[] = {207, 176, 82, 14, 74, 215, 140, 74, 219, 13, 235, 94, 96, 81, 98, 182, 70, 147, 73, 252, 31, 222, 146, 105, 184, 141, 89, 110, 217, 243, 115, 92, 0, 197, 146, 49, 124, 152, 35, 32, 135, 75, 152, 123, 204, 56, 232, 85, 106, 197, 68, 189, 238, 22, 155, 102, 174, 143, 230, 57, 130, 143, 245, 175, 180, 241, 153, 1, 126, 61, 142, 103, 90, 7, 127, 33, 205, 158, 92, 82, 108, 24, 102, 71, 110, 123, 167, 76, 215, 187, 22, 161, 195, 217, 59, 199, 187, 29, 87, 106, 237, 180, 48, 124, 107, 148, 141, 91, 140, 41, 247, 147, 7, 120, 141, 122, 142, 191, 132, 88, 91, 245, 57, 148, 130, 124, 35, 165};
+    ret = verify_dkim_signature(email, 65537, pubkey_e, 128);
+    assert(ret == 0);
+    pubkey_e[0] = 22;
+    ret =verify_dkim_signature(email, 65537, pubkey_e, 128); 
+    assert(ret == NOT_VERIFY);
     return 0;
 }

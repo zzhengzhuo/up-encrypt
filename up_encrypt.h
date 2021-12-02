@@ -15,6 +15,8 @@ typedef struct RustEmail Email;
 
 #define EMAIL_PARSE_ERROR -4
 
+#define STRING_CONVERT_ERROR -5
+
 int32_t get_email(const uint8_t *input, uintptr_t input_len, Email **email);
 
 void print_email(const Email *email);
@@ -26,10 +28,10 @@ int32_t verify_dkim_signature(const Email *email, uint32_t e, const uint8_t *n, 
 int32_t get_header_value(const Email *email,
                          const uint8_t *header,
                          uintptr_t header_len,
-                         const uint8_t **res,
+                         uint8_t **res,
                          uintptr_t *res_len);
 
-int32_t get_body(const Email *email, const uint8_t **res, uintptr_t *res_len);
+int32_t get_body(const Email *email, uint8_t **res, uintptr_t *res_len);
 
 int32_t print_pub_pkey(const PubPKey *input);
 
