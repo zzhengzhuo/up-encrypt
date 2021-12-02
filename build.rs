@@ -9,10 +9,10 @@ fn main() {
 
     cbindgen::Builder::new()
         .with_crate(crate_dir)
-        .with_after_include(
-            "typedef struct PKey PubPKey;
-typedef struct RustEmail Email;",
-        )
+        //         .with_after_include(
+        //             "typedef struct PKey PubPKey;
+        // typedef struct RustEmail Email;",
+        //         )
         .exclude_item("PubPKey")
         .with_language(Language::C)
         .generate()

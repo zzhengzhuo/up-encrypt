@@ -1,4 +1,4 @@
-use std::slice::from_raw_parts;
+use std::{ptr::null_mut, slice::from_raw_parts};
 
 use openssl::{
     bn::BigNum,
@@ -19,7 +19,7 @@ fn openssl_error_to_i32(e: &ErrorStack) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn print_pub_pkey(input: *const PubPKey) -> i32 {
+extern "C" fn print_pub_pkey(input: *const PubPKey) -> i32 {
     let input = if input.is_null() {
         return NULL_ERROR;
     } else {
@@ -30,12 +30,12 @@ pub extern "C" fn print_pub_pkey(input: *const PubPKey) -> i32 {
 }
 
 #[no_mangle]
-pub extern "C" fn drop_pub_pkey(input: *mut PubPKey) {
+extern "C" fn drop_pub_pkey(input: *mut PubPKey) {
     unsafe { Box::from_raw(input) };
 }
 
 #[no_mangle]
-pub extern "C" fn pub_pkey_from_component(
+pub(crate) extern "C" fn pub_pkey_from_component(
     e: u32,
     n: *const u8,
     n_len: usize,
@@ -74,7 +74,7 @@ pub extern "C" fn pub_pkey_from_component(
 }
 
 #[no_mangle]
-pub extern "C" fn pub_pkey_verify(
+pub(crate) extern "C" fn pub_pkey_verify(
     pub_pkey: *const PubPKey,
     message: *const u8,
     message_len: usize,
@@ -108,4 +108,24 @@ pub extern "C" fn pub_pkey_verify(
         Ok(false) => NOT_VERIFY,
         Err(e) => openssl_error_to_i32(&e),
     }
+}
+
+#[no_mangle]
+pub extern "C" fn rsa_with_sha256_verify(
+    e: u32,
+    n: *const u8,
+    n_len: usize,
+    message: *const u8,
+    message_len: usize,
+    signature: *const u8,
+    signature_len: usize,
+) -> i32 {
+    let mut pub_pkey = null_mut();
+    let mut ret = pub_pkey_from_component(e, n, n_len, &mut pub_pkey);
+    if ret != 0 {
+        return ret;
+    }
+    ret = pub_pkey_verify(pub_pkey, message, message_len, signature, signature_len);
+    drop_pub_pkey(pub_pkey);
+    ret
 }
