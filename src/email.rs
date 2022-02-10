@@ -1,20 +1,24 @@
-use std::{
-    ffi::{CStr, CString},
-    ptr::null_mut,
-    slice::from_raw_parts,
-    str::from_utf8,
-};
+use core::{ptr::null_mut, slice::from_raw_parts, str::from_utf8};
 
+use alloc::boxed::Box;
+use cstr_core::{CStr, CString};
 use email_rs::Email;
 
-use crate::{
-    rsa_with_sha256::{pub_pkey_from_component, pub_pkey_verify},
-    EMAIL_PARSE_ERROR, NOT_VERIFY, NULL_ERROR, STRING_CONVERT_ERROR, SUCCESS, UTF8_ERROR,
-};
+use crate::{EMAIL_PARSE_ERROR, NULL_ERROR, STRING_CONVERT_ERROR, SUCCESS, UTF8_ERROR};
 
+const SUBJECT_LEN: usize = 7;
+const FROM_LEN: usize = 4;
+
+/// # Safety
+///
+/// This function is not safe.
 #[no_mangle]
-extern "C" fn get_email(input: *const u8, input_len: usize, email: &mut *mut Email) -> i32 {
-    let input = unsafe { from_raw_parts(input, input_len) };
+pub unsafe extern "C" fn get_email(
+    input: *const u8,
+    input_len: usize,
+    email: &mut *mut Email,
+) -> i32 {
+    let input = from_raw_parts(input, input_len);
     let s = match from_utf8(input) {
         Ok(v) => v,
         Err(_) => return UTF8_ERROR,
@@ -28,75 +32,31 @@ extern "C" fn get_email(input: *const u8, input_len: usize, email: &mut *mut Ema
     }
 }
 
+// #[no_mangle]
+// extern "C" fn print_email(email: &Email) {
+//     println!("email:{:?}", email);
+// }
+
+/// # Safety
+///
+/// This function is not safe.
 #[no_mangle]
-extern "C" fn print_email(email: &Email) {
-    println!("email:{:?}", email);
+pub unsafe extern "C" fn drop_email(email: *mut Email) {
+    Box::from_raw(email);
 }
 
+/// # Safety
+///
+/// This function should not be called before the horsemen are ready.
 #[no_mangle]
-extern "C" fn drop_email(email: *mut Email) {
-    unsafe {
-        Box::from_raw(email);
-    }
-}
-
-#[no_mangle]
-extern "C" fn verify_dkim_signature(
-    email: *const Email,
-    e: u32,
-    n: *const u8,
-    n_len: usize,
-) -> i32 {
-    let mut pub_pkey = null_mut();
-    let ret = pub_pkey_from_component(e, n, n_len, &mut pub_pkey);
-    if ret != 0 {
-        return ret;
-    }
-    if pub_pkey.is_null() {
-        return NULL_ERROR;
-    }
-    if email.is_null() {
-        return NULL_ERROR;
-    }
-    let email = match unsafe { email.as_ref() } {
-        None => return NULL_ERROR,
-        Some(v) => v,
-    };
-
-    if email
-        .get_dkim_message()
-        .into_iter()
-        .zip(email.dkim_headers.iter())
-        .find(|(dkim_msg, dkim_header)| {
-            let handle = || {
-                let sig = &dkim_header.signature;
-                pub_pkey_verify(
-                    pub_pkey,
-                    dkim_msg.as_ptr(),
-                    dkim_msg.len(),
-                    sig.as_ptr(),
-                    sig.len(),
-                )
-            };
-            handle() == 0
-        })
-        .is_none()
-    {
-        return NOT_VERIFY;
-    }
-
-    SUCCESS
-}
-
-#[no_mangle]
-extern "C" fn get_header_value(
+pub unsafe extern "C" fn get_header_value(
     email: *const Email,
     header: *const u8,
     header_len: usize,
     res: &mut *mut u8,
     res_len: &mut usize,
 ) -> i32 {
-    let header = unsafe { from_raw_parts(header, header_len) };
+    let header = from_raw_parts(header, header_len);
     let header = match from_utf8(header) {
         Err(_e) => return UTF8_ERROR,
         Ok(v) => v,
@@ -104,7 +64,7 @@ extern "C" fn get_header_value(
     if email.is_null() {
         return NULL_ERROR;
     }
-    let email = match unsafe { email.as_ref() } {
+    let email = match email.as_ref() {
         Some(email) => email,
         None => return NULL_ERROR,
     };
@@ -123,7 +83,7 @@ extern "C" fn get_header_value(
 }
 
 #[no_mangle]
-extern "C" fn get_body(email: &Email, res: &mut *mut u8, res_len: &mut usize) -> i32 {
+pub extern "C" fn get_body(email: &Email, res: &mut *mut u8, res_len: &mut usize) -> i32 {
     match email.get_plain_body() {
         Ok(body) => {
             *res_len = body.len() + 1;
@@ -169,44 +129,19 @@ extern "C" fn extract_address_of_from(
     };
     SUCCESS
 }
-
-const SUBJECT_LEN: usize = 7;
-const FROM_LEN: usize = 4;
-
+/// # Safety
+///
+/// This function is not safe.
 #[no_mangle]
-pub extern "C" fn email_verify(
-    email_s: *const u8,
-    email_s_len: usize,
-    e: u32,
-    n: *const u8,
-    n_len: usize,
-    subject: &mut *mut u8,
-    subject_len: &mut usize,
+pub unsafe extern "C" fn get_email_from_header(
+    email: &Email,
     from: &mut *mut u8,
     from_len: &mut usize,
 ) -> i32 {
-    let mut email = null_mut();
-    let mut ret = get_email(email_s, email_s_len, &mut email);
-    if ret != 0 {
-        drop_email(email);
-        return ret;
-    }
-    ret = verify_dkim_signature(email, e, n, n_len);
-    if ret != 0 {
-        drop_email(email);
-        return ret;
-    }
-    let subject_s = "subject";
-    ret = get_header_value(email, subject_s.as_ptr(), SUBJECT_LEN, subject, subject_len);
-    if ret != 0 {
-        drop_email(email);
-        return ret;
-    }
-
     let from_s = "from";
     let mut ori_from = null_mut();
     let mut ori_from_len = 0;
-    ret = get_header_value(
+    let mut ret = get_header_value(
         email,
         from_s.as_ptr(),
         FROM_LEN,
@@ -214,19 +149,96 @@ pub extern "C" fn email_verify(
         &mut ori_from_len,
     );
     if ori_from.is_null() {
-        drop_email(email);
         return NULL_ERROR;
     }
-    unsafe { from_raw_parts(ori_from, ori_from_len) };
+    from_raw_parts(ori_from, ori_from_len);
+
     if ret != 0 {
-        drop_email(email);
         return ret;
     }
     ret = extract_address_of_from(ori_from, ori_from_len, from, from_len);
-    if ret != 0 {
-        drop_email(email);
-        return ret;
-    }
-    drop_email(email);
+
+    ret
+}
+
+/// # Safety
+///
+/// This function is not safe.
+#[no_mangle]
+pub unsafe extern "C" fn get_email_subject_header(
+    email: &Email,
+    subject: &mut *mut u8,
+    subject_len: &mut usize,
+) -> i32 {
+    let subject_s = "subject";
+    get_header_value(email, subject_s.as_ptr(), SUBJECT_LEN, subject, subject_len)
+}
+
+#[no_mangle]
+pub extern "C" fn get_email_dkim_msg(
+    email: &Email,
+    dkim_msg: &mut *const *mut u8,
+    dkim_msg_len: &mut usize,
+) -> i32 {
+    let dkim_msg_raw = email.get_dkim_message();
+    let cstr_dkim_msg: alloc::vec::Vec<_> = match dkim_msg_raw
+        .iter()
+        .map(|v| CString::new(v.as_str()))
+        .collect()
+    {
+        Err(_e) => return NULL_ERROR,
+        Ok(v) => v,
+    };
+
+    let mut ptr_dkim_msg: alloc::vec::Vec<_> =
+        cstr_dkim_msg.into_iter().map(|v| v.into_raw()).collect();
+
+    ptr_dkim_msg.shrink_to_fit();
+    let (ptr, len, cap) = ptr_dkim_msg.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_msg = ptr as *const *mut u8;
+    *dkim_msg_len = len;
     SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn get_email_dkim_sig(
+    email: &Email,
+    dkim_sig: &mut *const *const u8,
+    dkim_sig_len: &mut *const usize,
+    dkim_sig_num: &mut usize,
+) -> i32 {
+    let dkim_raw = &email.dkim_headers;
+    let mut dkim_sig_vec = alloc::vec::Vec::new();
+    let mut dkim_sig_len_vec = alloc::vec::Vec::new();
+    dkim_raw.iter().for_each(|v| {
+        let mut v = v.signature.clone();
+        v.shrink_to_fit();
+        let (ptr, len, cap) = v.into_raw_parts();
+        assert_eq!(cap, len);
+        dkim_sig_vec.push(ptr);
+        dkim_sig_len_vec.push(len);
+    });
+    dkim_sig_vec.shrink_to_fit();
+    dkim_sig_len_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_sig_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_sig = ptr as *const *const u8;
+
+    let (ptr, len, cap) = dkim_sig_len_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_sig_len = ptr;
+
+    *dkim_sig_num = len;
+    SUCCESS
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_free_box(ptr: *mut u8) {
+    Box::from_raw(ptr);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_free_vec(ptr: *mut u8, len: usize, cap: usize) {
+    alloc::vec::Vec::from_raw_parts(ptr, len, cap);
 }

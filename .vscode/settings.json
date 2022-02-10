@@ -1,13 +1,10 @@
 {
-    "C_Cpp.errorSquiggles": "Disabled",
     "files.associations": {
-        "random": "cpp",
-        "array": "c",
-        "string_view": "c",
-        "initializer_list": "c",
-        "utility": "c"
-    },
-    "cSpell.words": [
-        "fcontent"
-    ]
+        "stdlib.h": "c",
+        "stdarg.h": "c",
+        "stdbool.h": "c",
+        "string.h": "c",
+        "up_encrypt.h": "c",
+        "type_traits": "c"
+    }
 }

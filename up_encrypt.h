@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+typedef struct RustEmail Email;
 
 #define SUCCESS 0
 
@@ -15,25 +16,56 @@
 
 #define STRING_CONVERT_ERROR -5
 
-int32_t email_verify(const uint8_t *email_s,
-                     uintptr_t email_s_len,
-                     uint32_t e,
-                     const uint8_t *n,
-                     uintptr_t n_len,
-                     uint8_t **subject,
-                     uintptr_t *subject_len,
-                     uint8_t **from,
-                     uintptr_t *from_len);
+#define RSA_PUBKEY_ERROR -6
 
-int32_t rsa_with_sha256_verify(uint32_t e,
-                               const uint8_t *n,
-                               uintptr_t n_len,
-                               const uint8_t *message,
-                               uintptr_t message_len,
-                               const uint8_t *signature,
-                               uintptr_t signature_len);
+/**
+ * # Safety
+ *
+ * This function is not safe.
+ */
+int32_t get_email(const uint8_t *input, uintptr_t input_len, Email **email);
 
-int32_t sha256(const uint8_t *input,
-               uintptr_t input_len,
-               const uint8_t **output,
-               uintptr_t *output_len);
+/**
+ * # Safety
+ *
+ * This function is not safe.
+ */
+void drop_email(Email *email);
+
+/**
+ * # Safety
+ *
+ * This function should not be called before the horsemen are ready.
+ */
+int32_t get_header_value(const Email *email,
+                         const uint8_t *header,
+                         uintptr_t header_len,
+                         uint8_t **res,
+                         uintptr_t *res_len);
+
+int32_t get_body(const Email *email, uint8_t **res, uintptr_t *res_len);
+
+/**
+ * # Safety
+ *
+ * This function is not safe.
+ */
+int32_t get_email_from_header(const Email *email, uint8_t **from, uintptr_t *from_len);
+
+/**
+ * # Safety
+ *
+ * This function is not safe.
+ */
+int32_t get_email_subject_header(const Email *email, uint8_t **subject, uintptr_t *subject_len);
+
+int32_t get_email_dkim_msg(const Email *email, uint8_t *const **dkim_msg, uintptr_t *dkim_msg_len);
+
+int32_t get_email_dkim_sig(const Email *email,
+                           const uint8_t *const **dkim_sig,
+                           const uintptr_t **dkim_sig_len,
+                           uintptr_t *dkim_sig_num);
+
+void rust_free_box(uint8_t *ptr);
+
+void rust_free_vec(uint8_t *ptr, uintptr_t len, uintptr_t cap);

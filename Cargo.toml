@@ -5,14 +5,31 @@ edition = "2021"
 
 [lib]
 name = "up_encrypt"
-crate-type = ["cdylib"]
+crate-type = ["staticlib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-openssl = "0.10"
-libc = "0.2"
+openssl = { version = "0.10", optional = true }
+ring = { version = "0.16", optional = true }
+rsa = { git = "ssh://git@github.com/zzhengzhuo/RSA.git", optional = true, default-features = false, features = [
+    "alloc",
+] }
+# libc = "0.2"
 email-rs = { git = "https://github.com/sking789/email-rs.git", branch = "multi-dkim-header" }
+cstr_core = { version = "0.2", default-features = false, features = ["alloc"] }
+buddy-alloc = "0.4.1"
 
 [build-dependencies]
 cbindgen = "0.20"
+
+[features]
+ssl = ["openssl"]
+rustls = ["ring"]
+rsa_rs = ["rsa"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
