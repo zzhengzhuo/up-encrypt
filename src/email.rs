@@ -1,7 +1,7 @@
 use core::{ptr::null_mut, slice::from_raw_parts, str::from_utf8};
 
 use alloc::boxed::Box;
-use cstr_core::{CStr, CString};
+use cstr_core::{CStr, CString, NulError};
 use email_rs::Email;
 
 use crate::{EMAIL_PARSE_ERROR, NULL_ERROR, STRING_CONVERT_ERROR, SUCCESS, UTF8_ERROR};
@@ -69,15 +69,18 @@ pub unsafe extern "C" fn get_header_value(
         None => return NULL_ERROR,
     };
     match email.get_header_value(header) {
-        Ok(v) => {
-            *res_len = v.len() + 1;
-            let v = match CString::new(v) {
-                Ok(v) => v,
-                Err(_) => return STRING_CONVERT_ERROR,
-            };
-            *res = v.into_raw() as *mut u8;
-            SUCCESS
-        }
+        Ok(v) => match CString::new(v) {
+            Ok(v) => {
+                let mut v = v.into_bytes_with_nul();
+                v.shrink_to_fit();
+                let (ptr, len, cap) = v.into_raw_parts();
+                assert_eq!(len, cap);
+                *res = ptr;
+                *res_len = len;
+                SUCCESS
+            }
+            Err(_) => STRING_CONVERT_ERROR,
+        },
         Err(e) => e,
     }
 }
@@ -122,12 +125,18 @@ extern "C" fn extract_address_of_from(
         Ok(v) => v,
         Err(e) => return e,
     };
-    *from_len = from_s.len() + 1;
-    *from = match CString::new(from_s) {
-        Ok(v) => v.into_raw() as *mut u8,
-        Err(_e) => return STRING_CONVERT_ERROR,
-    };
-    SUCCESS
+    match CString::new(from_s) {
+        Ok(v) => {
+            let mut v = v.into_bytes_with_nul();
+            v.shrink_to_fit();
+            let (ptr, len, cap) = v.into_raw_parts();
+            assert_eq!(len, cap);
+            *from = ptr;
+            *from_len = len;
+            SUCCESS
+        }
+        Err(_e) => STRING_CONVERT_ERROR,
+    }
 }
 /// # Safety
 ///
@@ -177,27 +186,42 @@ pub unsafe extern "C" fn get_email_subject_header(
 #[no_mangle]
 pub extern "C" fn get_email_dkim_msg(
     email: &Email,
-    dkim_msg: &mut *const *mut u8,
-    dkim_msg_len: &mut usize,
+    dkim_msg: &mut *const *const u8,
+    dkim_msg_len: &mut *const usize,
+    dkim_msg_num: &mut usize,
 ) -> i32 {
     let dkim_msg_raw = email.get_dkim_message();
-    let cstr_dkim_msg: alloc::vec::Vec<_> = match dkim_msg_raw
+    let dkim_msg_raw: alloc::vec::Vec<_> = match dkim_msg_raw
         .iter()
-        .map(|v| CString::new(v.as_str()))
+        .map(|v| -> Result<_, NulError> { Ok(CString::new(v.as_str())?.into_bytes_with_nul()) })
         .collect()
     {
         Err(_e) => return NULL_ERROR,
         Ok(v) => v,
     };
 
-    let mut ptr_dkim_msg: alloc::vec::Vec<_> =
-        cstr_dkim_msg.into_iter().map(|v| v.into_raw()).collect();
+    let mut dkim_msg_vec = alloc::vec::Vec::new();
+    let mut dkim_msg_len_vec = alloc::vec::Vec::new();
 
-    ptr_dkim_msg.shrink_to_fit();
-    let (ptr, len, cap) = ptr_dkim_msg.into_raw_parts();
+    dkim_msg_raw.into_iter().for_each(|mut v| {
+        v.shrink_to_fit();
+        let (ptr, len, cap) = v.into_raw_parts();
+        assert_eq!(len, cap);
+        dkim_msg_vec.push(ptr);
+        dkim_msg_len_vec.push(len);
+    });
+
+    dkim_msg_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_msg_vec.into_raw_parts();
     assert_eq!(len, cap);
-    *dkim_msg = ptr as *const *mut u8;
-    *dkim_msg_len = len;
+    *dkim_msg = ptr as *const *const u8;
+
+    dkim_msg_len_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_msg_len_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_msg_len = ptr;
+
+    *dkim_msg_num = len;
     SUCCESS
 }
 
@@ -234,11 +258,16 @@ pub extern "C" fn get_email_dkim_sig(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rust_free_box(ptr: *mut u8) {
-    Box::from_raw(ptr);
+pub unsafe extern "C" fn rust_free_vec_u8(ptr: *mut u8, len: usize, cap: usize) {
+    alloc::vec::Vec::from_raw_parts(ptr, len, cap);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rust_free_vec(ptr: *mut u8, len: usize, cap: usize) {
+pub unsafe extern "C" fn rust_free_vec_usize(ptr: *mut usize, len: usize, cap: usize) {
+    alloc::vec::Vec::from_raw_parts(ptr, len, cap);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rust_free_ptr_vec(ptr: *mut *mut u8, len: usize, cap: usize) {
     alloc::vec::Vec::from_raw_parts(ptr, len, cap);
 }

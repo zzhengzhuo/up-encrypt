@@ -6,8 +6,8 @@
 use buddy_alloc::{BuddyAllocParam, FastAllocParam, NonThreadsafeAlloc};
 extern crate alloc;
 
-const FAST_HEAP_SIZE: usize = 32 * 1024; // 32 KB
-const HEAP_SIZE: usize = 1024 * 1024; // 1M
+const FAST_HEAP_SIZE: usize = 1 * 1024; // 32 KB
+const HEAP_SIZE: usize = 32 * 1024; // 1M
 const LEAF_SIZE: usize = 16;
 
 pub static mut FAST_HEAP: [u8; FAST_HEAP_SIZE] = [0u8; FAST_HEAP_SIZE];
@@ -26,8 +26,8 @@ fn alloc_panic(_: core::alloc::Layout) -> ! {
 }
 
 #[panic_handler]
-fn unexpected_panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
+fn unexpected_panic(info: &core::panic::PanicInfo) -> ! {
+    panic!("info:{}", info);
 }
 
 pub mod email;

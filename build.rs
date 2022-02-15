@@ -15,7 +15,8 @@ fn main() {
         "typedef struct RustEmail Email;",
                 )
         .exclude_item("PubPKey")
-        .with_language(Language::C)
+        .with_language(Language::Cxx)
+        // .with_language(Language::Cxx)
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file("up_encrypt.h");

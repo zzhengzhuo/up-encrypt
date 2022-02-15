@@ -32,4 +32,4 @@ rsa_rs = ["rsa"]
 panic = "abort"
 
 [profile.release]
-panic = "abort"
+panic = 'abort'
