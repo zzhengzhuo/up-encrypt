@@ -12,7 +12,7 @@ crate-type = ["staticlib"]
 [dependencies]
 openssl = { version = "0.10", optional = true }
 ring = { version = "0.16", optional = true }
-rsa = { git = "ssh://git@github.com/zzhengzhuo/RSA.git", optional = true, default-features = false, features = [
+rsa = { git = "https://github.com/zzhengzhuo/RSA.git", optional = true, default-features = false, features = [
     "alloc",
 ] }
 # libc = "0.2"

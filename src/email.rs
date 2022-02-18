@@ -193,7 +193,7 @@ pub extern "C" fn get_email_dkim_msg(
     let dkim_msg_raw = email.get_dkim_message();
     let dkim_msg_raw: alloc::vec::Vec<_> = match dkim_msg_raw
         .iter()
-        .map(|v| -> Result<_, NulError> { Ok(CString::new(v.as_str())?.into_bytes_with_nul()) })
+        .map(|v| -> Result<_, NulError> { Ok(v.as_bytes().to_vec()) })
         .collect()
     {
         Err(_e) => return NULL_ERROR,
