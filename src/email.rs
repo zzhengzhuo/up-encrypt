@@ -230,28 +230,70 @@ pub extern "C" fn get_email_dkim_sig(
     email: &Email,
     dkim_sig: &mut *const *const u8,
     dkim_sig_len: &mut *const usize,
+    dkim_selector: &mut *const *const u8,
+    dkim_selector_len: &mut *const usize,
+    dkim_sdid: &mut *const *const u8,
+    dkim_sdid_len: &mut *const usize,
     dkim_sig_num: &mut usize,
 ) -> i32 {
     let dkim_raw = &email.dkim_headers;
     let mut dkim_sig_vec = alloc::vec::Vec::new();
     let mut dkim_sig_len_vec = alloc::vec::Vec::new();
+    let mut dkim_selector_vec = alloc::vec::Vec::new();
+    let mut dkim_selector_len_vec = alloc::vec::Vec::new();
+    let mut dkim_sdid_vec = alloc::vec::Vec::new();
+    let mut dkim_sdid_len_vec = alloc::vec::Vec::new();
+
     dkim_raw.iter().for_each(|v| {
-        let mut v = v.signature.clone();
-        v.shrink_to_fit();
-        let (ptr, len, cap) = v.into_raw_parts();
+        let mut sig = v.signature.clone();
+        sig.shrink_to_fit();
+        let (ptr, len, cap) = sig.into_raw_parts();
         assert_eq!(cap, len);
         dkim_sig_vec.push(ptr);
         dkim_sig_len_vec.push(len);
+        let mut selector = v.selector.clone();
+        selector.shrink_to_fit();
+        let (ptr, len, cap) = selector.into_raw_parts();
+        assert_eq!(cap, len);
+        dkim_selector_vec.push(ptr);
+        dkim_selector_len_vec.push(len);
+        let mut sdid = v.sdid.clone();
+        sdid.shrink_to_fit();
+        let (ptr, len, cap) = sdid.into_raw_parts();
+        assert_eq!(cap, len);
+        dkim_sdid_vec.push(ptr);
+        dkim_sdid_len_vec.push(len);
     });
+
     dkim_sig_vec.shrink_to_fit();
-    dkim_sig_len_vec.shrink_to_fit();
     let (ptr, len, cap) = dkim_sig_vec.into_raw_parts();
     assert_eq!(len, cap);
     *dkim_sig = ptr as *const *const u8;
 
+    dkim_sig_len_vec.shrink_to_fit();
     let (ptr, len, cap) = dkim_sig_len_vec.into_raw_parts();
     assert_eq!(len, cap);
     *dkim_sig_len = ptr;
+
+    dkim_sdid_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_sdid_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_sdid = ptr as *const *const u8;;
+
+    dkim_sdid_len_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_sdid_len_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_sdid_len = ptr;
+
+    dkim_selector_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_selector_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_selector = ptr as *const *const u8;
+
+    dkim_selector_len_vec.shrink_to_fit();
+    let (ptr, len, cap) = dkim_selector_len_vec.into_raw_parts();
+    assert_eq!(len, cap);
+    *dkim_selector_len = ptr;
 
     *dkim_sig_num = len;
     SUCCESS

@@ -60,6 +60,10 @@ int32_t get_email_dkim_msg(const Email *email,
 int32_t get_email_dkim_sig(const Email *email,
                            const uint8_t *const **dkim_sig,
                            const uintptr_t **dkim_sig_len,
+                           const uint8_t *const **dkim_selector,
+                           const uintptr_t **dkim_selector_len,
+                           const uint8_t *const **dkim_sdid,
+                           const uintptr_t **dkim_sdid_len,
                            uintptr_t *dkim_sig_num);
 
 void rust_free_vec_u8(uint8_t *ptr, uintptr_t len, uintptr_t cap);
